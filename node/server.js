@@ -1,29 +1,30 @@
+// server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
+// Import Models
+const User = require('./models/user');
+const Login = require('./models/login');
+
 const app = express();
 const PORT = process.env.PORT || 5005;
 
+// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
+// MongoDB Connection
 const mongoURI = 'mongodb+srv://tirtharajbarma3:dominos7@cluster0.nsadppu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+
 mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
-// User Schema
-const userSchema = new mongoose.Schema({
-  name: String,
-  email: { type: String, unique: true },
-  password: String
-});
-
-const User = mongoose.model('User', userSchema);
-
 // Routes
+
+// Register Route
 app.post('/api/join', async (req, res) => {
   const { name, email, password } = req.body;
   try {
@@ -35,11 +36,19 @@ app.post('/api/join', async (req, res) => {
   }
 });
 
+// Signin Route
 app.post('/api/signin', async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await User.findOne({ email, password });
     if (user) {
+      // Save login activity
+      const login = new Login({
+        email: user.email,
+        ipAddress: req.ip
+      });
+      await login.save();
+
       res.status(200).json({ message: 'Sign in successful', user });
     } else {
       res.status(401).json({ error: 'Invalid credentials' });
@@ -49,14 +58,15 @@ app.post('/api/signin', async (req, res) => {
   }
 });
 
+// Get All Users Route
 app.get('/api/users', async (req, res) => {
   try {
-    const users = await User.find(); // Fetch all users from the database
+    const users = await User.find();
     res.status(200).json({ users });
   } catch (error) {
     res.status(500).json({ error: 'Error fetching users', details: error });
   }
 });
 
-// Start server
+// Start Server
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
